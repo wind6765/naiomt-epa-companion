@@ -49,10 +49,6 @@ export default function AdvisorPage() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
       const data = await response.json();
       const assistantMessage: Message = {
         role: 'assistant',
@@ -64,7 +60,7 @@ export default function AdvisorPage() {
       const errorMessage: Message = {
         role: 'assistant',
         content:
-          'Sorry, I encountered an error. Please try again or check that your API key is configured.',
+          'Sorry, I could not connect to the advisor service. This usually means the app is still loading. Please try again in a moment.',
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {

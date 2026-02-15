@@ -1,7 +1,4 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { EPAS, COMPETENCIES, DOMAINS, ENTRUSTMENT_LEVELS } from '@/data/framework';
-
-const client = new Anthropic();
 
 const systemPrompt = `You are an expert advisor for the NAIOMT (North American Institute for Orthopedic Manual Therapy) Fellowship EPA (Essential Professional Activities) framework. You help fellows, mentors, and program directors understand and apply this comprehensive framework.
 
@@ -107,16 +104,17 @@ export async function POST(request: Request) {
       return Response.json(
         {
           response:
-            'API key not configured. Please set ANTHROPIC_API_KEY in your environment variables.',
+            'The Clinical Advisor is not yet active. The ANTHROPIC_API_KEY environment variable needs to be added in your Vercel project settings. Go to Vercel → your project → Settings → Environment Variables → add ANTHROPIC_API_KEY with your key from console.anthropic.com.',
         },
-        { status: 500 }
+        { status: 200 }
       );
     }
 
+    const client = new Anthropic({ apiKey });
     const { messages } = await request.json();
 
     const response = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: systemPrompt,
       messages: messages.map((msg: { role: string; content: string }) => ({
