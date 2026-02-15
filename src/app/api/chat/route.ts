@@ -113,28 +113,38 @@ export async function POST(request: Request) {
     const client = new Anthropic({ apiKey });
     const { messages } = await request.json();
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: messages.map((msg: { role: string; content: string }) => ({
+    // Filter to only user and assistant messages (skip the welcome message)
+    const apiMessages = messages
+      .filter((msg: { role: string; content: string }) => msg.role === 'user' || msg.role === 'assistant')
+      .map((msg: { role: string; content: string }) => ({
         role: msg.role as 'user' | 'assistant',
         content: msg.content,
-      })),
+      }));
+
+    // Ensure first message is from user (required by API)
+    const firstUserIdx = apiMessages.findIndex((m: { role: string }) => m.role === 'user');
+    const cleanMessages = firstUserIdx >= 0 ? apiMessages.slice(firstUserIdx) : apiMessages;
+
+    const response = await client.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: cleanMessages,
     });
 
     const responseText =
       response.content[0].type === 'text' ? response.content[0].text : '';
 
     return Response.json({ response: responseText });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Chat API error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return Response.json(
       {
         response:
-          'An error occurred while processing your request. Please try again.',
+          `I encountered an issue connecting to the AI service: ${errorMessage}. Please check that your Anthropic API key is valid and has available credits.`,
       },
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
