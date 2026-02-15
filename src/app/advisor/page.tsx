@@ -31,7 +31,6 @@ export default function AdvisorPage() {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
-    // Add user message
     const userMessage: Message = {
       role: 'user',
       content: input,
@@ -49,18 +48,23 @@ export default function AdvisorPage() {
         }),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error ${response.status}: ${errorText}`);
+      }
+
       const data = await response.json();
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.response,
+        content: data.response || 'No response received.',
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error:', error);
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
       const errorMessage: Message = {
         role: 'assistant',
-        content:
-          'Sorry, I could not connect to the advisor service. This usually means the app is still loading. Please try again in a moment.',
+        content: `Connection error: ${errMsg}. If this persists, check Vercel function logs for details.`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
