@@ -1,5 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
-
 const systemPrompt = `You are an expert advisor for the NAIOMT (North American Institute for Orthopedic Manual Therapy) Fellowship EPA (Essential Professional Activities) framework. You help fellows, mentors, and program directors understand and apply this comprehensive framework.
 
 FRAMEWORK OVERVIEW:
@@ -110,30 +108,52 @@ export async function POST(request: Request) {
       );
     }
 
-    const client = new Anthropic({ apiKey });
     const { messages } = await request.json();
 
-    // Filter to only user and assistant messages (skip the welcome message)
+    // Filter to only user and assistant messages
     const apiMessages = messages
       .filter((msg: { role: string; content: string }) => msg.role === 'user' || msg.role === 'assistant')
       .map((msg: { role: string; content: string }) => ({
-        role: msg.role as 'user' | 'assistant',
+        role: msg.role,
         content: msg.content,
       }));
 
-    // Ensure first message is from user (required by API)
+    // Ensure first message is from user
     const firstUserIdx = apiMessages.findIndex((m: { role: string }) => m.role === 'user');
     const cleanMessages = firstUserIdx >= 0 ? apiMessages.slice(firstUserIdx) : apiMessages;
 
-    const response = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: cleanMessages,
+    // Use direct fetch instead of SDK to avoid serverless compatibility issues
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: cleanMessages,
+      }),
     });
 
+    if (!anthropicResponse.ok) {
+      const errorData = await anthropicResponse.text();
+      console.error('Anthropic API error:', anthropicResponse.status, errorData);
+      return Response.json(
+        {
+          response: `API error (${anthropicResponse.status}): ${errorData}`,
+        },
+        { status: 200 }
+      );
+    }
+
+    const data = await anthropicResponse.json();
     const responseText =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+      data.content && data.content[0] && data.content[0].type === 'text'
+        ? data.content[0].text
+        : 'No response generated.';
 
     return Response.json({ response: responseText });
   } catch (error: unknown) {
@@ -141,8 +161,7 @@ export async function POST(request: Request) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return Response.json(
       {
-        response:
-          `I encountered an issue connecting to the AI service: ${errorMessage}. Please check that your Anthropic API key is valid and has available credits.`,
+        response: `I encountered an issue: ${errorMessage}`,
       },
       { status: 200 }
     );
