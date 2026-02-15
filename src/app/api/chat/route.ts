@@ -95,6 +95,17 @@ If a user asks about assessment or mentoring, help them understand how to use th
 
 Always be professional, supportive, and focused on advancing clinical excellence in orthopedic manual therapy.`;
 
+// GET handler for diagnostics — visit /api/chat in browser to check deployment
+export async function GET() {
+  const hasKey = !!process.env.ANTHROPIC_API_KEY;
+  return Response.json({
+    version: '2025-02-15-v4',
+    model: 'claude-sonnet-4-20250514',
+    apiKeyConfigured: hasKey,
+    status: 'Route is live',
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
