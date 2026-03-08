@@ -31,6 +31,7 @@ export default function AdvisorPage() {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
+    // Add user message
     const userMessage: Message = {
       role: 'user',
       content: input,
@@ -49,22 +50,21 @@ export default function AdvisorPage() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server error ${response.status}: ${errorText}`);
+        throw new Error('Failed to get response');
       }
 
       const data = await response.json();
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.response || 'No response received.',
+        content: data.response,
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error:', error);
-      const errMsg = error instanceof Error ? error.message : 'Unknown error';
       const errorMessage: Message = {
         role: 'assistant',
-        content: `Connection error: ${errMsg}. If this persists, check Vercel function logs for details.`,
+        content:
+          'Sorry, I encountered an error. Please try again or check that your API key is configured.',
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
