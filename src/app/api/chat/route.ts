@@ -1,123 +1,170 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { EPAS, COMPETENCIES, DOMAINS, ENTRUSTMENT_LEVELS } from '@/data/framework';
+import { createClient } from '@supabase/supabase-js';
 
-const client = new Anthropic();
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-const systemPrompt = `You are an expert advisor for the NAIOMT (North American Institute for Orthopedic Manual Therapy) Fellowship EPA (Essential Professional Activities) framework. You help fellows, mentors, and program directors understand and apply this comprehensive framework.
+function buildSystemPrompt(
+  mode: string,
+  program: string,
+  programData: { domains: string; competencies: string; epas: string; entrustmentLevels: string }
+): string {
+  const programLabel =
+    program === 'residency' ? 'Residency (ABPTRFE / routine expertise)' :
+    program === 'fellowship' ? 'Fellowship (CEBE / advanced expertise)' :
+    program === 'certification' ? 'Certification (assessment pathway)' :
+    'NAIOMT';
 
-FRAMEWORK OVERVIEW:
-The NAIOMT EPA framework consists of 10 Essential Professional Activities (EPAs), 33 core competencies, 7 knowledge domains, and 5 entrustment levels that guide clinical learning and assessment.
+  const base = `You are an expert advisor for the NAIOMT (North American Institute for Orthopedic Manual Therapy) EPA (Essential Professional Activities) framework. You are currently operating in the context of the ${programLabel} program.
 
-10 ESSENTIAL PROFESSIONAL ACTIVITIES (EPAs):
-1. Perform Initial Examination of Persons at All Complexity Levels
-2. Establish Diagnosis and Prognosis at All Complexity Levels
-3. Develop Management Plans at All Complexity Levels
-4. Establish Self-Management Programs at All Complexity Levels
-5. Implement Interventions at All Complexity Levels
-6. Interpret Outcomes to Inform Management
-7. Recognize and Respond to Urgent/Emergent Status Changes
-8. Educate Patients, Caregivers, Families, and Healthcare Professionals
-9. Supervise or Delegate to PTAs, Aides, Technicians, and Junior Learners
-10. Conclude Episodes of Care
+CURRENT PROGRAM DATA:
 
-33 CORE COMPETENCIES:
-C1: Demonstrate a skilled, person-centered, motivational interview to build a meaningful therapeutic alliance.
-C2: Perform systemic screening and red flag assessment to identify urgent/emergent conditions and safety parameters.
-C3: Integrate evidence-based classification systems and reasoning frameworks to generate and test clinical hypotheses.
-C4: Recognize and respond to urgent/emergent status changes through rapid assessment and appropriate escalation.
-C5: Use shared decision-making and person-centered communication to co-construct management approaches.
-C6: Identify and classify pain phenotypes (nociceptive, nociplastic, neuropathic) through integrated subjective and objective findings.
-C7: Apply complexity assessment frameworks to stratify patients across subjective and objective domains.
-C8: Perform targeted, evidence-informed objective examination with real-time adaptation to emerging findings.
-C9: Integrate regional interdependence and multi-system reasoning into examination and management planning.
-C10: Apply dual-processing clinical reasoning (Type I and Type II) to synthesize diagnostic hypotheses.
-C11: Assess and integrate mitigating and perpetuating factors to establish individualized prognosis.
-C12: Conduct skilled, person-centered examination across diverse body regions and age groups.
-C13: Communicate diagnosis and prognosis using shared decision-making and person-appropriate language.
-C14: Deliver pain-science and health education as an integrated component of care.
-C15: Apply psychosocial screening and complexity assessment to inform intervention dosing and progression.
-C16: Develop individualized self-management and exercise programs based on readiness and complexity.
-C17: Teach self-management strategies through awareness of movement, positions, and environmental modification.
-C18: Perform iterative reassessment and interpret outcome data to inform plan modification or closure.
-C19: Integrate PROMs, functional status, and quality-of-life indicators into discharge and transition planning.
-C20: Select and implement training dosage appropriate to functional and psychosocial goals.
-C21: Deliver targeted and dosed manual therapy appropriate to presentation and pain phenotype.
-C22: Integrate manual therapy, exercise, and education for functional and psychosocial goals.
-C23: Grade patient autonomy and progression across the episode of care.
-C24: Mentor peers and learners in contemporary OMPT and advanced clinical reasoning.
-C25: Demonstrate leadership, scholarship, and evidence currency in OMPT.
-C26: Demonstrate reflective practice to refine diagnostic and treatment hypotheses.
-C27: Engage in adaptive expertise by recognizing non-response and redirecting management.
-C28: Integrate evidence-based practice with clinical experience when evidence is lacking.
-C29: Coordinate multidisciplinary care and communicate across healthcare teams.
-C30: Triage, delegate, and supervise care tasks matching complexity to scope and competence.
-C31: Provide structured feedback and support professional development of supervisees and learners.
-C32: Demonstrate advocacy and leadership in health promotion, prevention, and population health.
-C33: Determine discharge readiness and develop post-discharge self-maintenance and relapse prevention plans.
+DOMAINS:
+${programData.domains}
 
-7 KNOWLEDGE DOMAINS:
-1. Knowledge for Practice: Integration of foundational, behavioral, and movement sciences into clinical reasoning
-2. Patient/Client Care and Services: Evidence-informed, person-centered evaluation and intervention across complexity levels
-3. Practice Management: Value-based care delivery with administrative oversight and resource stewardship
-4. Teaching and Learning: Education to empower patients, communities, peers, and learners
-5. Communication and Collaboration: Culturally responsive, interprofessional relationships and shared decision-making
-6. Professionalism: Leadership, ethical practice, and lifelong scholarship
-7. Stewards of Societal Health: Health promotion, prevention, and advocacy at the population level
+COMPETENCIES:
+${programData.competencies}
 
-5 ENTRUSTMENT LEVELS:
-1. Direct supervision for high complexity - Can manage routine/moderate cases; high-complexity cases require mentor presence and active guidance
-2. Shared decision-making for high complexity - Can manage moderate cases with growing independence; high-complexity cases require real-time co-reasoning
-3. Consultation available for high complexity - Can manage most cases independently; may seek consultation for complex or atypical presentations
-4. Independent with oversight - Can manage all cases independently; mentor available but not routinely needed; periodic summative oversight
-5. Ready to mentor others - Practices independently and prepared to mentor peers and learners in associated competencies
+EPAs (shared across programs):
+${programData.epas}
 
-3 COMPLEXITY TIERS (for examination, management, and assessment):
+ENTRUSTMENT LEVELS:
+${programData.entrustmentLevels}
+
+3 COMPLEXITY TIERS:
 - Low Complexity: Straightforward, routine presentations
 - Moderate Complexity: Cases with multiple contributing factors or psychosocial complexity
 - High Complexity: Multi-system involvement, significant psychosocial barriers, or atypical presentations
 
-COMPETENCY-EPA MAPPINGS:
-Use the framework to help users understand which competencies are primary (P) vs supporting (S) for each EPA, and vice versa.
+Always be professional, evidence-informed, and focused on advancing clinical excellence in orthopedic manual therapy. Ground all answers in the actual curriculum data above.`;
 
-KEY PRINCIPLES TO GUIDE YOUR RESPONSES:
-1. Help users understand the framework's complexity - it's designed to develop adaptive expertise
-2. When discussing clinical scenarios, identify relevant EPAs and competencies
-3. Explain entrustment levels in context - they reflect readiness, not just knowledge
-4. Emphasize person-centered, complexity-informed practice
-5. Connect competencies to clinical outcomes
-6. Support mentors in assessing fellows using the entrustment matrix
-7. Help program directors integrate the framework into curriculum
-8. Be evidence-informed and reference contemporary OMPT literature when relevant
+  switch (mode) {
+    case 'qa':
+      return `${base}
 
-If a user describes a clinical scenario, help them:
-- Identify which EPA(s) it relates to
-- Highlight relevant competencies
-- Consider complexity level
-- Suggest assessment methods
-- Discuss entrustment-level expectations
+MODE: EPA & Competency Q&A
+Answer questions about EPAs, competencies, domains, entrustment levels, and the curriculum framework. Be specific — reference competency codes, EPA numbers, and domain names from the data above. If a question is about a different program than the one currently selected, note that and answer based on what you know.`;
 
-If a user asks about assessment or mentoring, help them understand how to use the entrustment matrix with complexity tiers.
+    case 'clinical':
+      return `${base}
 
-Always be professional, supportive, and focused on advancing clinical excellence in orthopedic manual therapy.`;
+MODE: Clinical Reasoning Advisor
+Help users analyze clinical scenarios through the lens of the ${programLabel} curriculum. When a user describes a patient:
+1. Identify the relevant EPA(s) and competencies
+2. Classify the complexity level (low/moderate/high)
+3. Consider pain phenotype if applicable
+4. ${program === 'residency' ? 'Ground your response in CBP protocols and the routine expertise framework' : 'Ground your response in adaptive reasoning and the CEBE framework'}
+5. Suggest assessment approaches and management considerations
+6. Reference specific competencies by code`;
+
+    case 'entrustment':
+      return `${base}
+
+MODE: Entrustment Decision Support
+Help mentors and program directors calibrate entrustment decisions. When a user describes a learner's performance:
+1. Map the performance to the entrustment scale levels above
+2. Identify which EPA(s) and competencies are being assessed
+3. Consider the complexity tier of the cases described
+4. Describe what progression to the next level would look like
+5. Use the specific behavioral descriptors from the entrustment levels above
+6. Note that the ${programLabel} entrustment scale may have different calibration than other programs`;
+
+    case 'research':
+      return `${base}
+
+MODE: Research & Document Search
+Help users find information across the curriculum framework. Answer questions about:
+- What the curriculum says about specific topics
+- How competencies relate to each other
+- Framework structure and relationships
+- Evidence and literature references within the curriculum
+Search broadly across the competency definitions, EPA specifications, and domain descriptions above.`;
+
+    default:
+      return base;
+  }
+}
 
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return Response.json(
-        {
-          response:
-            'API key not configured. Please set ANTHROPIC_API_KEY in your environment variables.',
-        },
+        { response: 'API key not configured. Please set ANTHROPIC_API_KEY in your environment variables.' },
         { status: 500 }
       );
     }
 
-    const { messages } = await request.json();
+    const client = new Anthropic({ apiKey });
+    const { messages, mode = 'qa', program = 'fellowship' } = await request.json();
+
+    // Fetch program data from Supabase
+    const { data: programs } = await supabase
+      .from('programs')
+      .select('*')
+      .eq('slug', program)
+      .single();
+
+    const programId = programs?.id;
+
+    // Fetch program-scoped data in parallel
+    const [domainsRes, compsRes, epasRes, levelsRes] = await Promise.all([
+      programId
+        ? supabase.from('competency_domains').select('*').eq('program_id', programId).order('sort_order')
+        : Promise.resolve({ data: [] }),
+      programId
+        ? supabase.from('competencies').select('*').eq('program_id', programId).order('sort_order')
+        : Promise.resolve({ data: [] }),
+      supabase.from('epas').select('*').order('number'),
+      programId
+        ? supabase.from('entrustment_levels').select('*').eq('program_id', programId).order('level')
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const domains = domainsRes.data || [];
+    const comps = compsRes.data || [];
+    const epas = epasRes.data || [];
+    const levels = levelsRes.data || [];
+
+    // If no program-specific entrustment levels, try generic
+    let entrustmentLevels = levels;
+    if (entrustmentLevels.length === 0) {
+      const { data: fallback } = await supabase
+        .from('entrustment_levels')
+        .select('*')
+        .is('program_id', null)
+        .order('level');
+      entrustmentLevels = fallback || [];
+    }
+
+    const programData = {
+      domains: domains.length > 0
+        ? domains.map((d: { code: string; name: string; description?: string }) =>
+            `${d.code}: ${d.name}${d.description ? ` — ${d.description}` : ''}`
+          ).join('\n')
+        : 'No domains mapped yet for this program.',
+      competencies: comps.length > 0
+        ? comps.map((c: { code: string; title: string }) => `${c.code}: ${c.title}`).join('\n')
+        : 'No competencies mapped yet for this program.',
+      epas: epas.map((e: { number: number; title: string; description?: string }) =>
+        `EPA ${e.number}: ${e.title}${e.description ? ` — ${e.description}` : ''}`
+      ).join('\n'),
+      entrustmentLevels: entrustmentLevels.length > 0
+        ? entrustmentLevels.map((l: { level: number; descriptor: string; meaning?: string }) =>
+            `Level ${l.level}: ${l.descriptor}${l.meaning ? ` — ${l.meaning}` : ''}`
+          ).join('\n')
+        : 'Entrustment levels not yet defined for this program.',
+    };
+
+    const systemPrompt = buildSystemPrompt(mode, program, programData);
+
+    const maxTokens = mode === 'qa' ? 1000 : 2000;
 
     const response = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: messages.map((msg: { role: string; content: string }) => ({
         role: msg.role as 'user' | 'assistant',
@@ -125,17 +172,13 @@ export async function POST(request: Request) {
       })),
     });
 
-    const responseText =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
 
     return Response.json({ response: responseText });
   } catch (error) {
     console.error('Chat API error:', error);
     return Response.json(
-      {
-        response:
-          'An error occurred while processing your request. Please try again.',
-      },
+      { response: 'An error occurred while processing your request. Please try again.' },
       { status: 500 }
     );
   }
