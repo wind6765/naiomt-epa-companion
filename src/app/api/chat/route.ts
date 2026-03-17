@@ -1,10 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 function buildSystemPrompt(
   mode: string,
@@ -98,6 +100,7 @@ export async function POST(request: Request) {
     }
 
     const client = new Anthropic({ apiKey });
+    const supabase = getSupabase();
     const { messages, mode = 'qa', program = 'fellowship' } = await request.json();
 
     // Fetch program data from Supabase
