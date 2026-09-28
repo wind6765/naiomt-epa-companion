@@ -1,0 +1,27 @@
+# Deterministic security gate: secret scan + production dependency audit on every push/PR.
+# Added 2026-09-28 (security hardening). Actions are pinned to commit SHAs, not tags,
+# because a tag or branch name can be repointed (the Plugin4Shell lesson).
+# GitHub Free private repos cannot enforce this as a required check; it is a detector.
+name: security
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets-and-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: gitleaks (full history)
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: npm audit (production deps, high+)
+        if: hashFiles('package-lock.json') != ''
+        run: npm audit --omit=dev --audit-level=high
